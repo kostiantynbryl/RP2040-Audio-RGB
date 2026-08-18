@@ -1,30 +1,17 @@
-# RP2040 Firmware
+# RP2040 Firmware v2
 
-The repository now includes a configurable Arduino sketch:
-
-- [`RP2040_Audio_RGB/RP2040_Audio_RGB.ino`](RP2040_Audio_RGB/RP2040_Audio_RGB.ino)
-
-## What it does
-
-The firmware exposes a USB serial port at **115200 baud** and accepts frames from the Windows client in this format:
+Arduino sketch:
 
 ```text
-L R1 G1 B1 R2 G2 B2
+RP2040_Audio_RGB/RP2040_Audio_RGB.ino
 ```
 
-Example:
+The firmware exposes USB CDC serial at **115200 baud** and drives two logical outputs:
 
-```text
-L 255 80 0 255 80 0
-```
+1. PWM analog RGB / MOSFET RGB output.
+2. WS2812 / NeoPixel output with a configurable pixel count.
 
-- `R1 G1 B1` controls a discrete PWM RGB LED or MOSFET-driven analog RGB output.
-- `R2 G2 B2` controls a WS2812 / NeoPixel.
-- A 3-second failsafe switches the LEDs off if valid frames stop arriving.
-
-## Default pin configuration
-
-The sketch currently ships with these defaults:
+## Default pins
 
 ```cpp
 PIN_RED      = 13
@@ -33,25 +20,29 @@ PIN_BLUE     = 15
 PIN_NEOPIXEL = 16
 ```
 
-`GP16` matches the onboard WS2812 used by the Waveshare RP2040-Zero. If your external RGB LED is wired differently, edit the three PWM pin constants at the top of the sketch before flashing.
-
-For a common-anode RGB LED set:
-
-```cpp
-RGB_COMMON_ANODE = true;
-```
-
-For a common-cathode LED leave it `false`.
+If the external RGB wiring differs, change the three PWM pin constants before compiling. Set `RGB_COMMON_ANODE = true` for a common-anode RGB LED.
 
 ## Arduino requirements
 
-Install:
+Install an Arduino RP2040 board core and **Adafruit NeoPixel** from Library Manager. Open the sketch, select the correct RP2040 board/port and upload.
 
-1. An Arduino RP2040-compatible board core.
-2. **Adafruit NeoPixel** from Arduino Library Manager.
+## Protocol v2
 
-Open `RP2040_Audio_RGB.ino`, select your RP2040 board and USB port, then upload it.
+```text
+L R1 G1 B1 R2 G2 B2
+PING
+INFO
+BRI 0..100
+COUNT 1..300
+OFF
+```
 
-## Serial protocol
+`COUNT` resizes the NeoPixel buffer so the same firmware supports a single onboard WS2812 or an external strip. Output #2 is currently broadcast to every configured pixel.
 
-See [`../docs/protocol.md`](../docs/protocol.md) for the host-side protocol specification.
+The original `L ...` RGB frame remains unchanged, so firmware v2 is compatible with the legacy/headless PC client.
+
+## Failsafe
+
+If no valid RGB frame arrives for 3 seconds, both outputs are switched off. This prevents LEDs from remaining frozen at full brightness after a host crash or USB disconnect.
+
+See [`../docs/protocol.md`](../docs/protocol.md) for the complete command reference.
