@@ -16,9 +16,10 @@ for %%V in (3.13 3.12 3.11 3.10) do (
     if not errorlevel 1 if not defined PYTHON_CMD set "PYTHON_CMD=py -%%V"
 )
 
-rem Fall back to python.exe from PATH, but only if its stdlib/venv works.
+rem Fall back to python.exe from PATH only when it is Python 3.10-3.13 and
+rem its standard library / venv module are healthy.
 if not defined PYTHON_CMD (
-    python -c "import sys,venv; print(sys.executable)" >nul 2>&1
+    python -c "import sys,venv; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,14) else 1)" >nul 2>&1
     if not errorlevel 1 set "PYTHON_CMD=python"
 )
 
@@ -31,9 +32,9 @@ if errorlevel 1 goto :no_python
 echo.
 echo [1/4] Creating isolated virtual environment...
 if exist ".venv\Scripts\python.exe" (
-    ".venv\Scripts\python.exe" -c "import sys" >nul 2>&1
+    ".venv\Scripts\python.exe" -c "import sys; raise SystemExit(0 if (3,10) <= sys.version_info[:2] < (3,14) else 1)" >nul 2>&1
     if errorlevel 1 (
-        echo Existing .venv is invalid. Recreating it...
+        echo Existing .venv is invalid or unsupported. Recreating it...
         rmdir /s /q ".venv"
     )
 )
@@ -72,12 +73,12 @@ exit /b 0
 echo.
 echo ERROR: No healthy Python 3.10-3.13 installation was found.
 echo.
-echo Your current Windows Python launcher may point to a broken Python 3.14
- echo installation. Install a clean Python 3.13 and then run setup.bat again.
+echo Your current Windows Python launcher points to a broken/unsupported
+ echo Python 3.14 installation. Install a clean Python 3.13, then rerun setup.
 echo.
 echo Recommended command:
 echo   winget install -e --id Python.Python.3.13
- echo.
+echo.
 echo After installation, close this CMD window, open a new one and run:
 echo   cd /d %CD%
 echo   setup.bat
