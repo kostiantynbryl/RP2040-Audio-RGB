@@ -1,24 +1,14 @@
 @echo off
 setlocal
-
-cd /d "%~dp0"
-
-echo Installing RP2040 Audio RGB dependencies...
+echo Installing RP2040 Audio RGB...
 py -m pip install --upgrade pip
-if errorlevel 1 goto :error
-
 py -m pip install -r requirements.txt
-if errorlevel 1 goto :error
-
+if errorlevel 1 (
+  echo Installation failed.
+  pause
+  exit /b 1
+)
 echo.
 echo Installation complete.
-echo Run with: py led.py
+echo Run run.bat to launch the application.
 pause
-exit /b 0
-
-:error
-echo.
-echo Installation failed.
-echo Check that Python is installed and available through the Windows py launcher.
-pause
-exit /b 1
