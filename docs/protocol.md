@@ -1,65 +1,73 @@
-# Serial Protocol
+# Serial Protocol v2
 
-The Windows client communicates with the RP2040 over a USB CDC serial port at **115200 baud**.
+RP2040 Audio RGB uses a newline-terminated ASCII protocol over USB CDC serial at **115200 baud**.
 
-## RGB update command
+## RGB frame
 
 ```text
-L R1 G1 B1 R2 G2 B2\n
+L R1 G1 B1 R2 G2 B2
 ```
 
-Where each color channel is an integer from `0` to `255`.
+Each channel is `0..255`. Output #1 is intended for the PWM RGB output; output #2 is the WS2812/NeoPixel channel.
 
 Example:
 
 ```text
-L 255 120 20 255 120 20
+L 255 120 20 40 70 255
 ```
 
-This sets both RGB targets to the same orange color.
-
-## Field meaning
-
-| Field | Meaning |
-|---|---|
-| `L` | LED update command |
-| `R1 G1 B1` | RGB target #1 |
-| `R2 G2 B2` | RGB target #2 |
-
-The current `led.py` mirrors one calculated color to both outputs, but the protocol already supports independent colors for two targets.
-
-## Turn LEDs off
+## Device discovery and health
 
 ```text
-L 0 0 0 0 0 0
+PING
 ```
 
-The Python client sends this command when it exits normally.
+Response:
 
-## Firmware parser requirements
+```text
+PONG
+```
 
-The RP2040 firmware should:
+Firmware information:
 
-1. Read one newline-terminated ASCII command.
-2. Check that the first token is `L`.
-3. Parse six integer values.
-4. Clamp every channel to `0..255`.
-5. Update both RGB outputs.
-6. Ignore malformed commands instead of blocking the main loop.
+```text
+INFO
+```
+
+Example response:
+
+```text
+INFO RP2040-Audio-RGB 2.0.0 PIXELS=16 BRI=100
+```
+
+## Global firmware brightness
+
+```text
+BRI 0..100
+```
+
+The desktop application normally performs brightness scaling on the PC, but firmware-level brightness is available as a safety/power limit.
+
+## WS2812 pixel count
+
+```text
+COUNT 1..300
+```
+
+The firmware resizes the NeoPixel buffer and applies output #2 to all configured pixels. This makes the same firmware usable with the onboard LED or an external strip.
+
+## Immediate off
+
+```text
+OFF
+```
+
+The firmware also has a **3 second failsafe**: if valid RGB frames stop arriving, both outputs are switched off.
+
+## Compatibility
+
+The desktop application can still drive the original v1 firmware because the `L ...` frame format is unchanged. `PING`, `INFO`, `BRI`, and `COUNT` require firmware v2.
 
 ## Timing
 
-The PC updates the color continuously based on the audio block size. The firmware should avoid long blocking delays so serial data can be consumed reliably.
-
-## Future protocol extensions
-
-Possible additions:
-
-```text
-B <brightness>
-M <mode>
-S <speed>
-P <preset>
-```
-
-These commands are not implemented in the current Windows client yet.
+Audio processing and the UI run independently from serial I/O. The host sends frames continuously while a reactive mode is active. Firmware code must avoid blocking delays so the USB receive buffer remains responsive.
