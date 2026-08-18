@@ -1,3 +1,9 @@
 numpy
 pyserial
 PyAudioWPatch
+PySide6
+mss
+psutil
+pywin32
+keyboard
+pyinstaller
