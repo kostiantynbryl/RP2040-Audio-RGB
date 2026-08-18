@@ -1,161 +1,217 @@
-# RP2040 Audio RGB
+<p align="center">
+  <img src="assets/icon.svg" width="110" alt="RP2040 Audio RGB logo">
+</p>
 
-Real-time audio-reactive RGB lighting for RP2040 boards, driven from Windows system audio.
+<h1 align="center">RP2040 Audio RGB</h1>
 
-The PC captures the actual Windows playback stream through WASAPI loopback, performs FFT analysis, splits the signal into bass / mid / treble bands, converts them into RGB values, and sends the result to an RP2040 over USB serial.
+<p align="center"><b>Windows audio-reactive RGB controller, screen ambient lighting and RP2040 firmware.</b></p>
 
-## Features
+The project started as a small Python music-lighting script and is now structured as a full Windows desktop application. It captures Windows playback or a microphone, performs real-time FFT/beat analysis, renders RGB effects and drives an RP2040 over USB serial. It can also ignore audio completely and use the screen as a two-zone Ambilight source.
 
-- Windows system-audio capture via WASAPI loopback
-- No microphone required
-- Automatic RP2040 COM-port detection
-- Real-time FFT analysis with three frequency bands
-- Bass -> red / orange
-- Mids -> green / cyan
-- Treble -> blue / violet
-- Attack / release smoothing for brightness
-- Smooth RGB transitions
-- Live terminal visualization of level, dB, dominant band and RGB output
-- Serial protocol suitable for driving two synchronized RGB targets
+## UI preview
 
-## Signal path
+> These SVG images are documentation previews of the implemented interface. They are not claimed to be captured runtime screenshots; real Windows captures can replace them after the first packaged build is tested.
+
+![Dashboard](docs/screenshots/dashboard.svg)
+
+![Reactive](docs/screenshots/reactive.svg)
+
+![Ambient](docs/screenshots/ambient.svg)
+
+## Highlights
+
+- PySide6 dark desktop GUI with Dashboard, Reactive, Effects, Ambient, App Profiles, RP2040 and Settings tabs
+- Windows system audio through WASAPI loopback **or** microphone capture
+- selectable audio devices
+- live 32-band spectrum visualization
+- FFT Bass / Mid / High analysis
+- automatic gain control and beat detection
+- Spectrum, Bass Pulse, Gradient, Static, Breathing, Pulse and Rainbow modes
+- brightness, sensitivity, attack, release and smoothness controls
+- editable frequency ranges, gains and colors
+- built-in Gaming, EDM, Rock, Chill, Movie and Night presets
+- saved custom presets
+- automatic preset switching by foreground application
+- two-zone screen Ambient Mode
+- independent RGB output #1 / #2 modes
+- RGB channel calibration and LED test tools
+- WS2812 strip count up to 300 pixels in firmware v2
+- automatic COM detection/reconnect
+- system tray, Windows autostart and global hotkeys
+- idle and night modes
+- firmware BOOTSEL `.uf2` updater
+- protocol v2 device health/status commands
+- portable EXE and Inno Setup installer definitions
+- tag-driven GitHub Release workflow
+- staged portable updater helper
+- performance diagnostics and persistent logs
+
+The complete 40-point implementation matrix is in [`docs/FEATURES.md`](docs/FEATURES.md).
+
+## Signal paths
+
+### Audio reactive
 
 ```text
-Windows audio
-    |
-    v
-WASAPI loopback
-    |
-    v
-FFT analysis
-    |
-    +--> Bass   35-250 Hz
-    +--> Mid   250-2000 Hz
-    +--> High 2000-10000 Hz
-    |
-    v
-RGB mixer + smoothing
-    |
-    v
-USB Serial @ 115200 baud
-    |
-    v
-RP2040
-    |
-    +--> RGB output #1
-    +--> RGB output #2
+Windows playback / microphone
+          |
+          v
+   PyAudioWPatch
+          |
+          v
+FFT + AGC + beat detection
+          |
+          v
+Effect engine / presets
+          |
+          v
+USB Serial 115200
+          |
+          v
+        RP2040
+       /      \
+ PWM RGB    WS2812
 ```
 
-## Requirements
+### Screen Ambient
+
+```text
+Windows screen
+     |
+     v
+  MSS capture
+     |
+ +---+---+
+ |       |
+Left   Right
+ |       |
+RGB #1  RGB #2
+```
+
+## Repository structure
+
+```text
+RP2040-Audio-RGB/
+├─ app.py                         GUI launcher
+├─ led.py                         legacy/headless prototype
+├─ rgb_app/
+│  ├─ audio.py                    WASAPI / microphone / FFT / AGC / beats
+│  ├─ ambient.py                  screen capture
+│  ├─ config.py                   persisted settings and presets
+│  ├─ device.py                   RP2040 serial manager
+│  ├─ effects.py                  effect engine
+│  ├─ gui.py                      PySide6 application
+│  ├─ widgets.py                  spectrum + dark UI
+│  └─ windows.py                  hotkeys, profiles, updater, autostart
+├─ firmware/RP2040_Audio_RGB/     Arduino RP2040 firmware v2
+├─ docs/                          protocol, architecture, guide, previews
+├─ assets/icon.svg                application mark
+├─ RP2040AudioRGB.spec            PyInstaller build
+├─ installer.iss                  Inno Setup installer
+└─ .github/workflows/release.yml  Windows Release pipeline
+```
+
+## Install from source
+
+Requirements:
 
 - Windows 10/11
 - Python 3.10+
-- RP2040 board with USB serial firmware compatible with the protocol below
-
-Python packages:
-
-```text
-numpy
-pyserial
-PyAudioWPatch
-```
-
-## Installation
-
-Clone the repository and install dependencies:
+- RP2040 board
 
 ```bat
 git clone https://github.com/kostiantynbryl/RP2040-Audio-RGB.git
 cd RP2040-Audio-RGB
-py -m pip install -r requirements.txt
+setup.bat
+run.bat
 ```
 
-Run:
+Or manually:
 
 ```bat
-py led.py
+py -m pip install -r requirements.txt
+py app.py
 ```
-
-Expected startup output is similar to:
-
-```text
-RP2040 найден: COM5
-SYSTEM AUDIO:
-Устройство: Динамики (...) [Loopback]
-Sample rate: 48000
-Channels: 2
-
-MUSIC MODE v3 / SYSTEM AUDIO
-```
-
-## Serial protocol
-
-The current PC client sends one ASCII line per RGB update:
-
-```text
-L R1 G1 B1 R2 G2 B2\n
-```
-
-Example:
-
-```text
-L 255 90 10 255 90 10
-```
-
-The current client mirrors the same color to both RGB targets. This makes it possible to keep an onboard LED and an external RGB LED/strip synchronized.
-
-See [`docs/protocol.md`](docs/protocol.md) for details.
-
-## Audio mapping
-
-| Band | Frequency | Main color |
-|---|---:|---|
-| Bass | 35-250 Hz | Red / Orange |
-| Mid | 250-2000 Hz | Green / Cyan |
-| Treble | 2000-10000 Hz | Blue / Violet |
-
-The final RGB value is a weighted mix of all three bands rather than a hard switch, so transitions remain smooth.
-
-## Main tuning parameters
-
-Inside `led.py`:
-
-```python
-DB_MIN = -60.0
-DB_MAX = -10.0
-MAX_BRIGHTNESS = 1.0
-LEVEL_ATTACK = 0.55
-LEVEL_RELEASE = 0.12
-COLOR_SMOOTH = 0.30
-```
-
-If the LEDs are almost always at maximum brightness, lower sensitivity by increasing `DB_MIN` or moving `DB_MAX` closer to 0 dB.
 
 ## Firmware
 
-The PC side is ready to use with firmware that accepts the serial command format described above. Firmware source will live under `firmware/`.
+Arduino source:
 
-The exact GPIO and LED-driver implementation depends on whether the target is:
+```text
+firmware/RP2040_Audio_RGB/RP2040_Audio_RGB.ino
+```
 
-- a discrete RGB LED,
-- an addressable WS2812/NeoPixel,
-- or a larger LED strip through external power switching / level shifting.
+Default pins:
 
-## Project status
+```text
+R       GP13
+G       GP14
+B       GP15
+WS2812  GP16
+```
 
-Current stage: working Windows audio-reactive prototype with WASAPI loopback and synchronized dual RGB output.
+Change these constants before flashing if your wiring differs. GP16 matches the onboard WS2812 arrangement commonly used by RP2040-Zero style boards.
 
-Planned improvements:
+Firmware v2 understands:
 
-- selectable visualization presets
-- automatic gain control
-- beat detection
-- spectrum / VU modes
-- tray application or GUI
-- per-device audio source selection
-- configurable serial protocol and LED count
-- saved profiles
+```text
+L R1 G1 B1 R2 G2 B2
+PING
+INFO
+BRI 0..100
+COUNT 1..300
+OFF
+```
+
+See [`docs/protocol.md`](docs/protocol.md).
+
+## Build Windows binaries
+
+Portable build:
+
+```bat
+build.bat
+```
+
+Outputs:
+
+```text
+dist\RP2040AudioRGB\RP2040AudioRGB.exe
+dist\RP2040AudioRGB-portable.zip
+```
+
+Compile `installer.iss` with Inno Setup for a standard Windows installer.
+
+Pushing a tag such as `v1.0.0` triggers the Windows Release GitHub Actions workflow and publishes the generated artifacts to a GitHub Release.
+
+## Default hotkeys
+
+```text
+Ctrl+Alt+L       Toggle LEDs
+Ctrl+Alt+P       Next preset
+Ctrl+Alt+Up      Brightness +10%
+Ctrl+Alt+Down    Brightness -10%
+```
+
+## Configuration and logs
+
+```text
+%APPDATA%\RP2040-Audio-RGB\config.json
+%APPDATA%\RP2040-Audio-RGB\app.log
+```
+
+## Documentation
+
+- [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) — usage and build guide
+- [`docs/FEATURES.md`](docs/FEATURES.md) — all 40 requested features
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — code and threading architecture
+- [`docs/protocol.md`](docs/protocol.md) — serial protocol v2
+- [`firmware/README.md`](firmware/README.md) — firmware setup
+
+## Status
+
+**v1.0 development implementation is in `main`.** The next validation milestone is running the new GUI on the target Windows PC, confirming the actual external RGB GPIO wiring, compiling/flashing firmware v2 and replacing the SVG documentation previews with real captured screenshots.
 
 ## License
 
-MIT License. See [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE).
