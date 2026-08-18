@@ -1,8 +1,12 @@
 # RP2040 Firmware
 
-This directory is reserved for the RP2040 firmware used by the project.
+The repository now includes a configurable Arduino sketch:
 
-The current Windows client expects firmware that exposes a USB serial port and accepts commands in this format:
+- [`RP2040_Audio_RGB/RP2040_Audio_RGB.ino`](RP2040_Audio_RGB/RP2040_Audio_RGB.ino)
+
+## What it does
+
+The firmware exposes a USB serial port at **115200 baud** and accepts frames from the Windows client in this format:
 
 ```text
 L R1 G1 B1 R2 G2 B2
@@ -14,14 +18,40 @@ Example:
 L 255 80 0 255 80 0
 ```
 
-For now, the exact firmware source is intentionally not included because the GPIO / LED implementation depends on the connected hardware:
+- `R1 G1 B1` controls a discrete PWM RGB LED or MOSFET-driven analog RGB output.
+- `R2 G2 B2` controls a WS2812 / NeoPixel.
+- A 3-second failsafe switches the LEDs off if valid frames stop arriving.
 
-- discrete common-anode/common-cathode RGB LED,
-- onboard addressable RGB LED,
-- WS2812 / NeoPixel,
-- external RGB strip with MOSFET drivers,
-- or a combination of two outputs.
+## Default pin configuration
 
-When the hardware pinout is finalized, firmware can be added here without changing the Windows-side audio analyzer or serial protocol.
+The sketch currently ships with these defaults:
 
-See [`../docs/protocol.md`](../docs/protocol.md) for the full command specification.
+```cpp
+PIN_RED      = 13
+PIN_GREEN    = 14
+PIN_BLUE     = 15
+PIN_NEOPIXEL = 16
+```
+
+`GP16` matches the onboard WS2812 used by the Waveshare RP2040-Zero. If your external RGB LED is wired differently, edit the three PWM pin constants at the top of the sketch before flashing.
+
+For a common-anode RGB LED set:
+
+```cpp
+RGB_COMMON_ANODE = true;
+```
+
+For a common-cathode LED leave it `false`.
+
+## Arduino requirements
+
+Install:
+
+1. An Arduino RP2040-compatible board core.
+2. **Adafruit NeoPixel** from Arduino Library Manager.
+
+Open `RP2040_Audio_RGB.ino`, select your RP2040 board and USB port, then upload it.
+
+## Serial protocol
+
+See [`../docs/protocol.md`](../docs/protocol.md) for the host-side protocol specification.
